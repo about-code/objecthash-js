@@ -35,11 +35,12 @@ test('unicode', function (t) {
 })
 
 test('lists with strings', function (t) {
-  t.plan(3)
+  t.plan(4)
 
   t.equal(objectHash([]).toString('hex'), 'acac86c0e609ca906f632b0e2dacccb2b77d22b0621f20ebece1a4835b93f6f0')
   t.equal(objectHash(['foo']).toString('hex'), '268bc27d4974d9d576222e4cdbb8f7c6bd6791894098645a19eeca9c102d0964')
   t.equal(objectHash(['foo', 'bar']).toString('hex'), '32ae896c413cfdc79eec68be9139c86ded8b279238467c216cf2bec4d5f1e4a2')
+  t.equal(objectHash(['bar', 'foo']).toString('hex'), '2d306488c4d2eb979509b374a2370e185dd09456961c668685ff5c23ec6872f9')
 })
 
 test('lists with integers', function (t) {
@@ -65,6 +66,35 @@ test('order independence', function (t) {
   t.equal(objectHash({"k1": "v1", "k2": "v2", "k3": "v3"}).toString('hex'), 'ddd65f1f7568269a30df7cafc26044537dc2f02a1a0d830da61762fc3e687057')
   t.equal(objectHash({"k2": "v2", "k1": "v1", "k3": "v3"}).toString('hex'), 'ddd65f1f7568269a30df7cafc26044537dc2f02a1a0d830da61762fc3e687057')
 })
+
+test('array item order independence', function (t) {
+  t.plan(11);
+
+  t.equal(objectHash(['foo', 'bar'], { ignoreArrayItemOrder: true }).toString('hex'), '32ae896c413cfdc79eec68be9139c86ded8b279238467c216cf2bec4d5f1e4a2');
+  t.equal(objectHash(['bar', 'foo'], { ignoreArrayItemOrder: true }).toString('hex'), '32ae896c413cfdc79eec68be9139c86ded8b279238467c216cf2bec4d5f1e4a2');
+
+  t.equal(objectHash([{foo: "foo"}, {bar: "bar"}], { ignoreArrayItemOrder: true }).toString('hex'), '6e7bcbf1a91cda96563291420eaccc72babcf21e72c253d533e45ae5183171ce');
+  t.equal(objectHash([{bar: "bar"}, {foo: "foo"}], { ignoreArrayItemOrder: true }).toString('hex'), '6e7bcbf1a91cda96563291420eaccc72babcf21e72c253d533e45ae5183171ce');
+
+  // Test combination of dict + array because hashDict() internally calls objectHash()
+  // and thus must correctly pass through options.
+  t.equal(objectHash([
+    { arr: [{foo: "foo"}, {bar: "bar"}] },
+    { arr: [{bar: "bar"}, {foo: "foo"}] }
+  ], { ignoreArrayItemOrder: true }).toString('hex'), 'ef2a08309fb4957fdf6c7db87f39e2efee98e4d5db39a9ea77a03439ea3b7be9');
+  t.equal(objectHash([
+    { arr: [{bar: "bar"}, {foo: "foo"}] },
+    { arr: [{foo: "foo"}, {bar: "bar"}] }
+  ], { ignoreArrayItemOrder: true }).toString('hex'), 'ef2a08309fb4957fdf6c7db87f39e2efee98e4d5db39a9ea77a03439ea3b7be9');
+
+  // make sure it works with redacted values, too
+  t.equal(objectHash(["**REDACTED**82f70430fa7b78951b3c4634d228756a165634df977aa1fada051d6828e78f30", null, 1.0, 1.5, "**REDACTED**1195afc7f0b70bb9d7960c3615668e072a1cbfbbb001f84871fd2e222a87be1d", 1000.0, 2.0, -23.1234, 2.0], {ignoreArrayItemOrder: true}).toString('hex'), '61a0dc88b5e855109f8cdb767863b5aa95d50bf6cf9bd707257d3177b194831d')
+  t.equal(objectHash(["**REDACTED**82f70430fa7b78951b3c4634d228756a165634df977aa1fada051d6828e78f30", "**REDACTED**1195afc7f0b70bb9d7960c3615668e072a1cbfbbb001f84871fd2e222a87be1d", null, 1.0, 1.5, 1000.0, 2.0, -23.1234, 2.0], {ignoreArrayItemOrder: true}).toString('hex'), '61a0dc88b5e855109f8cdb767863b5aa95d50bf6cf9bd707257d3177b194831d')
+
+  t.equal(objectHash(["foo", {"bar": ["baz", null, 1.0, 1.5, 0.0001, 1000.0, 2.0, -23.1234, 2.0]}], {ignoreArrayItemOrder: true}).toString('hex'), 'a34f6863f3ffd32f820d7661c2d99d8ec2ae0fa7f9c286a79676b864646bc6b7')
+  t.equal(objectHash(["foo", {"bar": ["**REDACTED**82f70430fa7b78951b3c4634d228756a165634df977aa1fada051d6828e78f30", null, 1.0, 1.5, "**REDACTED**1195afc7f0b70bb9d7960c3615668e072a1cbfbbb001f84871fd2e222a87be1d", 1000.0, 2.0, -23.1234, 2.0]}], {ignoreArrayItemOrder: true}).toString('hex'), 'a34f6863f3ffd32f820d7661c2d99d8ec2ae0fa7f9c286a79676b864646bc6b7')
+  t.equal(objectHash(["foo", {"bar": ["**REDACTED**82f70430fa7b78951b3c4634d228756a165634df977aa1fada051d6828e78f30", "**REDACTED**1195afc7f0b70bb9d7960c3615668e072a1cbfbbb001f84871fd2e222a87be1d", null, 1.0, 1.5, 1000.0, 2.0, -23.1234, 2.0]}], {ignoreArrayItemOrder: true}).toString('hex'), 'a34f6863f3ffd32f820d7661c2d99d8ec2ae0fa7f9c286a79676b864646bc6b7')
+});
 
 test('mix of all types', function (t) {
   t.plan(3)

@@ -20,6 +20,18 @@ function hash(str, buf) {
   return h.digest()
 }
 
+function sortHashes(bufA, bufB) {
+  const a = bufA.toString('hex')
+  const b = bufB.toString('hex')
+  if (a < b) {
+    return -1
+  } else if (a > b) {
+    return 1
+  } else {
+    return 0
+  }
+}
+
 function normalizeFloat (float) {
   let str = ''
 
@@ -67,27 +79,39 @@ function normalizeFloat (float) {
   return str
 }
 
-function hashDict (obj) {
+function hashDict (obj, options) {
   const hashes = Object.keys(obj).map(function (key) {
     return Buffer.concat([
-      objectHash(key),
-      objectHash(obj[key])])
+      objectHash(key, options),
+      objectHash(obj[key], options)])
   })
-  hashes.sort(function (bufA, bufB) {
-    const a = bufA.toString('hex')
-    const b = bufB.toString('hex')
-    if (a < b) {
-      return -1
-    } else if (a > b) {
-      return 1
-    } else {
-      return 0
-    }
-  })
+  hashes.sort(sortHashes)
   return hash(DICT_STRING, Buffer.concat(hashes))
 }
 
-function objectHash (obj) {
+function hashArray(arr, options) {
+  const hashes = arr.map(item => objectHash(item, options))
+  if (options.ignoreArrayItemOrder) {
+    hashes.sort(sortHashes)
+  }
+  return hash(LIST_STRING, Buffer.concat(hashes))
+}
+
+/**
+ *
+ * @param {*} obj The value to hash
+ * @param {object} [options] Optional settings to tweak the algorithm.
+ *
+ * - **ignoreArrayItemOrder: boolean (default: `false`)**
+ *   When `true` then arrays with the same items but different item order will
+ *   yield the same array hash sum. This may be useful to quickly test whether
+ *   two arrays contain the same items independent of the item position.
+ *
+ * Note that when comparing hashes, both hashes must have been produced with
+ * identical options.
+ */
+function objectHash(obj, options) {
+  options = options || {};
   if (typeof obj === 'string' && REDACTED_REGEX.test(obj)) {
     return Buffer.from(obj.slice(12), 'hex')
   } else if (typeof obj === 'undefined' || obj === null) {
@@ -105,9 +129,9 @@ function objectHash (obj) {
   } else if (typeof obj === 'number') {
     return hash(FLOAT_STRING, Buffer.from(normalizeFloat(obj), 'utf8'))
   } else if (Array.isArray(obj)) {
-    return hash(LIST_STRING, Buffer.concat(obj.map(objectHash)))
+    return hashArray(obj, options)
   } else if (typeof obj === 'object') {
-    return hashDict(obj)
+    return hashDict(obj, options)
   } else {
     throw new Error('unknown type: ' + typeof obj, obj)
   }
